@@ -6,9 +6,14 @@ import {
   login,
   logout,
   verifyEmail,
+  forgotPassword,
+  resetPassword,
 } from "../controllers/authController";
+import { authUser } from "../middleware/authentication";
 
 authRouter.post("/login", login);
-authRouter.get("/logout", logout);
+authRouter.delete("/logout", authUser, logout);
 authRouter.post("/verify-email", verifyEmail);
 authRouter.post("/register", register);
+authRouter.post("/forgot-password", forgotPassword);
+authRouter.post("/reset-password", resetPassword);

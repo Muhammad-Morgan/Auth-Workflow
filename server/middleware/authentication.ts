@@ -1,23 +1,33 @@
 import { NextFunction, Request, Response } from "express";
 import { UnAuthenticatedError, UnAuthorizedError } from "../errors";
 import { isTokenValid } from "../utils/jwt";
+import Token from "../models/Token";
+import { attachCookiesToResponse } from "../utils/jwt";
 
-export const authUser = (req: Request, res: Response, next: NextFunction) => {
-  const token = req.signedCookies.token;
-  if (!token) throw new UnAuthenticatedError("Authentication failed - MW");
+export const authUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const { refreshToken, accessToken } = req.signedCookies;
 
   try {
-    const payload = isTokenValid({ token }) as {
-      name: string;
-      userId: string;
-      iat: number;
-      role: "admin" | "user";
-    };
-    req.user = {
-      name: payload.name,
-      userId: payload.userId,
-      role: payload.role,
-    };
+    if (accessToken) {
+      const payload = isTokenValid({ token: accessToken });
+      req.user = payload;
+      return next();
+    }
+    const payload = isTokenValid({ token: refreshToken }) as any;
+    const existingToken = await Token.findOne({
+      user: payload.userId,
+      refreshToken,
+    });
+    if (!existingToken || !existingToken?.isValid)
+      throw new UnAuthenticatedError("Authentication Invalid - MW");
+    attachCookiesToResponse({
+      payload: { tokenUser: payload, refreshToken, res },
+    });
+    req.user = payload;
     next();
   } catch (error) {
     throw new UnAuthenticatedError("Authentication error caught - MW");

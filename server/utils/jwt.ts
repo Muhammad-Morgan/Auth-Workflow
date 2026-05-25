@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import { StringValue } from "ms";
 import { Response } from "express";
 
 type PayloadProps = {

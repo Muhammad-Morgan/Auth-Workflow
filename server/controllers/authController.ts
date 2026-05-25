@@ -4,7 +4,6 @@ import { BadRequestError, UnAuthenticatedError } from "../errors";
 import { StatusCodes } from "http-status-codes";
 import { createTokenUser } from "../utils/createTokenUser";
 import crypto from "crypto";
-import { sendEmail } from "../utils/sendEmail";
 import { sendVerificationEmail } from "../utils/sendVerficationEmail";
 import { attachCookiesToResponse } from "../utils/jwt";
 import Token from "../models/Token";
@@ -74,15 +73,32 @@ const login = async (req: Request, res: Response) => {
 
   if (!existingUser.isVerified)
     throw new UnAuthenticatedError("Please verify your account");
-  // calling attach...
+
   const tokenUser = createTokenUser({
     name: existingUser.name,
     userId: existingUser._id,
     role: existingUser.role,
   });
-
   let refreshToken = "";
+
   // check if there is existing accessToken for user
+  const existingToken = await Token.findOne({ user: existingUser._id });
+  if (existingToken) {
+    const { isValid } = existingToken;
+    if (!isValid) throw new UnAuthenticatedError("Invalid Credentials");
+    refreshToken = existingToken.refreshToken;
+    attachCookiesToResponse({
+      payload: { tokenUser, refreshToken, res },
+    });
+    res.status(StatusCodes.OK).json({
+      user: {
+        name: tokenUser.name,
+        userId: tokenUser.userId,
+        role: tokenUser.role,
+      },
+    });
+    return;
+  }
 
   // create refreshToken
   refreshToken = crypto.randomBytes(40).toString("hex");
@@ -111,10 +127,39 @@ const login = async (req: Request, res: Response) => {
   });
 };
 const logout = async (req: Request, res: Response) => {
-  res.cookie("token", "", {
+  await Token.findOneAndDelete({ user: req.user?.userId });
+
+  res.cookie("accessToken", "", {
+    expires: new Date(Date.now()), // Expires now.
+    httpOnly: true,
+  });
+  res.cookie("refreshToken", "", {
     expires: new Date(Date.now()), // Expires now.
     httpOnly: true,
   });
   res.status(StatusCodes.OK).json({ msg: "logout user" });
 };
-export { register, login, logout, verifyEmail };
+const forgotPassword = async (req: Request, res: Response) => {
+  const { email } = req.body;
+  if (!email) throw new BadRequestError("Please provide valid email");
+
+  // we wanna find the user
+  const user = await User.findOne({ email });
+  if (user) {
+    const passwordToken = crypto.randomBytes(70).toString("hex");
+    // send email
+    const tenMinutes = 1000 * 60 * 10;
+    const passwordTokenExpirationDate = new Date(Date.now() + tenMinutes);
+    user.passwordToken = passwordToken;
+    user.passwordTokenExpirationDate = passwordTokenExpirationDate;
+    await user.save();
+  }
+
+  res
+    .status(StatusCodes.OK)
+    .json({ msg: "Please check your email for reset password link" });
+};
+const resetPassword = async (req: Request, res: Response) => {
+  res.send("reset passowrd");
+};
+export { register, login, logout, verifyEmail, forgotPassword, resetPassword };

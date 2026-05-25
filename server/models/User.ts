@@ -11,6 +11,8 @@ export interface IUser extends mongoose.Document {
   verificationToken: string;
   isVerified: boolean;
   verified: Date;
+  passwordToken: string;
+  passwordTokenExpirationDate: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 const UserSchema = new mongoose.Schema<IUser>({
@@ -48,6 +50,10 @@ const UserSchema = new mongoose.Schema<IUser>({
   verified: {
     type: Date,
   },
+  passwordToken: {
+    type: String,
+  },
+  passwordTokenExpirationDate: { type: Date },
 });
 
 // adding Schema.pre middleware
