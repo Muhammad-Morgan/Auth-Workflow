@@ -8,6 +8,7 @@ import {
 } from "../errors";
 import { checkPersmissions } from "../utils/checkPermissions";
 import { createTokenUser } from "../utils/createTokenUser";
+import { attachCookiesToResponse } from "../utils/jwt";
 
 // That's an admin action
 const getAllUsers = async function name(req: Request, res: Response) {
@@ -40,13 +41,13 @@ const updateUser = async function name(req: Request, res: Response) {
   updatedUser.email = email;
   updatedUser.name = name;
   await updatedUser.save();
-  const tokenUser = {
-    res,
+  const tokenUser = createTokenUser({
     name,
     userId: req.user.userId,
     role: updatedUser.role,
-  };
-  createTokenUser(tokenUser);
+  });
+  attachCookiesToResponse({ payload: { tokenUser, res } });
+
   res.status(StatusCodes.OK).json({
     name,
     userId: req.user.userId,

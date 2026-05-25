@@ -3,23 +3,26 @@ import { StringValue } from "ms";
 import { Response } from "express";
 
 type PayloadProps = {
-  tokenUser: {
-    name: string;
-    userId: string;
-    role: "admin" | "user";
-  };
+  tokenUser: { userId: string; name: string; role: "admin" | "user" };
+  refreshToken?: string;
   res: Response;
 };
 
 export const createJWT = ({
   payload,
 }: {
-  payload: { userId: string; name: string; role: "admin" | "user" };
+  payload: {
+    user: { userId: string; name: string; role: "admin" | "user" };
+    refreshToken?: string;
+  };
 }) => {
   const token = jwt.sign(
-    { name: payload.name, userId: payload.userId, role: payload.role },
+    {
+      name: payload.user.name,
+      userId: payload.user.userId,
+      role: payload.user.role,
+    },
     process.env.JWT_SECRET!,
-    { expiresIn: process.env.JWT_LIFETIME as StringValue },
   );
   return token;
 };
@@ -34,13 +37,27 @@ export const attachCookiesToResponse = ({
 }: {
   payload: PayloadProps;
 }) => {
-  const token = createJWT({ payload: payload.tokenUser });
-
   const oneDay = 60 * 60 * 24 * 1000;
-  payload.res.cookie("token", token, {
-    expires: new Date(Date.now() + oneDay), // 1 day
+
+  // access token
+  const accessToken = createJWT({ payload: { user: payload.tokenUser } });
+  payload.res.cookie("accessToken", accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     signed: true,
+    maxAge: 1000 * 60 * 2,
   });
+
+  // refresh token
+  if (payload.refreshToken) {
+    const refreshToken = createJWT({
+      payload: { user: payload.tokenUser, refreshToken: payload.refreshToken },
+    });
+    payload.res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      signed: true,
+      expires: new Date(Date.now() + oneDay),
+    });
+  }
 };
