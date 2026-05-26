@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { sendVerificationEmail } from "../utils/sendVerficationEmail";
 import { attachCookiesToResponse } from "../utils/jwt";
 import Token from "../models/Token";
+import { sendResetPasswordEmail } from "../utils/sendResetPasswordEmail";
 
 const register = async (req: Request, res: Response) => {
   // check if email exists already
@@ -147,7 +148,16 @@ const forgotPassword = async (req: Request, res: Response) => {
   const user = await User.findOne({ email });
   if (user) {
     const passwordToken = crypto.randomBytes(70).toString("hex");
+    const forwardedProtocol = req.get("x-forwarded-proto");
+    const forwardedHost = req.get("x-forwarded-host");
     // send email
+    await sendResetPasswordEmail({
+      name: user.name,
+      email: user.email,
+      token: passwordToken,
+      origin: `${forwardedProtocol}://${forwardedHost}`,
+    });
+
     const tenMinutes = 1000 * 60 * 10;
     const passwordTokenExpirationDate = new Date(Date.now() + tenMinutes);
     user.passwordToken = passwordToken;
@@ -160,6 +170,24 @@ const forgotPassword = async (req: Request, res: Response) => {
     .json({ msg: "Please check your email for reset password link" });
 };
 const resetPassword = async (req: Request, res: Response) => {
-  res.send("reset passowrd");
+  const { token, email, password } = req.body;
+  if (!token || !email || !password)
+    throw new BadRequestError("Please provide all values");
+
+  const user = await User.findOne({ email });
+  if (user) {
+    const currentDate = new Date();
+    if (
+      user?.passwordToken === token &&
+      currentDate < user.passwordTokenExpirationDate!
+    ) {
+      user.password = password;
+      user.passwordTokenExpirationDate = null;
+      user.passwordToken = null;
+      await user.save();
+    }
+  }
+
+  res.status(StatusCodes.OK).json({ msg: "" });
 };
 export { register, login, logout, verifyEmail, forgotPassword, resetPassword };

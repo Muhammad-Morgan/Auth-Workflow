@@ -11,8 +11,8 @@ export interface IUser extends mongoose.Document {
   verificationToken: string;
   isVerified: boolean;
   verified: Date;
-  passwordToken: string;
-  passwordTokenExpirationDate: Date;
+  passwordToken: string | null;
+  passwordTokenExpirationDate: Date | null;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 const UserSchema = new mongoose.Schema<IUser>({
