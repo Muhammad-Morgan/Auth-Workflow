@@ -8,6 +8,7 @@ import { sendVerificationEmail } from "../utils/sendVerficationEmail";
 import { attachCookiesToResponse } from "../utils/jwt";
 import Token from "../models/Token";
 import { sendResetPasswordEmail } from "../utils/sendResetPasswordEmail";
+import { hashString } from "../utils/createHash";
 
 const register = async (req: Request, res: Response) => {
   // check if email exists already
@@ -160,7 +161,7 @@ const forgotPassword = async (req: Request, res: Response) => {
 
     const tenMinutes = 1000 * 60 * 10;
     const passwordTokenExpirationDate = new Date(Date.now() + tenMinutes);
-    user.passwordToken = passwordToken;
+    user.passwordToken = hashString(passwordToken);
     user.passwordTokenExpirationDate = passwordTokenExpirationDate;
     await user.save();
   }
@@ -178,7 +179,7 @@ const resetPassword = async (req: Request, res: Response) => {
   if (user) {
     const currentDate = new Date();
     if (
-      user?.passwordToken === token &&
+      user?.passwordToken === hashString(token) &&
       currentDate < user.passwordTokenExpirationDate!
     ) {
       user.password = password;
@@ -188,6 +189,6 @@ const resetPassword = async (req: Request, res: Response) => {
     }
   }
 
-  res.status(StatusCodes.OK).json({ msg: "" });
+  res.status(StatusCodes.OK).json({ msg: "password was reset successfully" });
 };
 export { register, login, logout, verifyEmail, forgotPassword, resetPassword };
