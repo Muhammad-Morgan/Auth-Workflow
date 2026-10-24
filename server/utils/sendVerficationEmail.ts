@@ -14,7 +14,7 @@ export const sendVerificationEmail = async ({
   origin,
 }: SendVerification) => {
   // construct url
-  const verifyEmail = `${origin}/user/verify-email?token=${verificationToken}&email=${email}`;
+  const verifyEmail = `${origin}/auth/verify-email?token=${verificationToken}&email=${email}`;
   const message = `<p>Please confirm your email by clicking the following link : <a href="${verifyEmail}" >Verify Email</a> </p>`;
   return sendEmail({
     to: email,
